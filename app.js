@@ -5,6 +5,7 @@ const cors = require('cors');
 const express = require('express');
 const helmet = require('helmet');
 const path = require('path');
+const Saml2js = require('saml2js');
 
 const session = require('express-session')
 
@@ -26,11 +27,12 @@ app.use(express.static('public'));
 
 //Get Methods
 app.get('/', auth.protected, function(req, res) {
-    res.sendFile('index.html');
+  res.sendFile(__dirname + '/index.html');
 });
 
-app.get('/home', auth.protected, function(req, res) {
-    res.sendFile('index.html');
+app.get('/home', auth.protected, function(req, res) { 
+  console.log('going home');
+  res.sendFile(__dirname + '/index.html');
 });
 
 //auth.authenticate check if you are logged in
@@ -43,6 +45,18 @@ app.get('/login',
     res.redirect('/');
   }
 );
+
+app.post('/login', 
+  auth.authenticate('saml', { 
+    failureRedirect: '/', 
+    failureFlash: true 
+  }), function(req, res, next) {
+    const xmlResponse = req.body.SAMLResponse;
+    const parser = new Saml2js(xmlResponse);
+    req.samlUserObject = parser.toObject();
+    res.redirect('/home');
+    next();
+});
 
 //POST Methods, redirect to home successful login
 app.post('/login/callback', 
