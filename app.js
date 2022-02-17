@@ -6,21 +6,30 @@ const express = require('express');
 const helmet = require('helmet');
 const path = require('path');
 const Saml2js = require('saml2js');
-
-const session = require('express-session')
+const session = require('express-session');
 
 const auth = require('./auth');
 
 const app = express();
-app.use(cors());
 
+app.use(cors());
 app.use(bodyParser.json({limit: '10mb'}));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(helmet());
 app.use(compression()); //Compress all routes
 
-app.use(session({ secret: "application session" }));
+app.use(session({ 
+  secret: "application session",
+  // Forces the session to be saved
+  // back to the session store
+  resave: true,
+
+  // Forces a session that is "uninitialized"
+  // to be saved to the store
+  saveUninitialized: true
+}));
+
 app.use(auth.initialize());
 app.use(auth.session());
 app.use(express.static('public'));
@@ -31,7 +40,7 @@ app.get('/', auth.protected, function(req, res) {
 });
 
 app.get('/home', auth.protected, function(req, res) { 
-  console.log('going home');
+  console.log('going home', req.session);
   res.sendFile(__dirname + '/index.html');
 });
 
@@ -42,6 +51,7 @@ app.get('/login',
     failureRedirect: '/login', 
     failureFlash: true 
   }), function(req, res) {
+    console.log('sessionID = ', req.sessionID);
     res.redirect('/');
   }
 );
