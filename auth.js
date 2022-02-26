@@ -1,7 +1,8 @@
-
-const passport = require('passport');
-const passportSaml = require('passport-saml');
-const config = require('./config.json')[process.env.NODE_ENV || 'dev'];
+const passport = require("passport");
+const passportSaml = require("passport-saml");
+const passportJwt = require("passport-jwt");
+const config = require("./config.json")[process.env.NODE_ENV || "dev"];
+const JWT_SECRET = require('./secret');
 
 let users = [];
 
@@ -28,38 +29,55 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
-// SAML strategy for passport -- Single IPD
-const strategy = new passportSaml.Strategy({
-    issuer: config.auth.issuer,
-    path: '/login/callback',
-    entryPoint: config.auth.entryPoint,
-    cert: config.auth.cert
+// JWT strategy for passport
+const JwtStrategy = new passportJwt.Strategy(
+  {
+    jwtFromRequest: function (req) {
+      // tell passport to read JWT from cookies
+      let token = null;
+      if (req && req.cookies) {
+        token = req.cookies["jwt"];
+        console.log("-- JWT Token found");
+      }
+      console.log("-- JWT Returning token", token);
+      return token;
+    },
+    secretOrKey: JWT_SECRET,
   },
-  function(profile, done) {
-    console.log('Succesfully authenticated profile');
-    console.log(profile);
+  function (jwt_payload, done) {
+    console.log("[AUTH] JWT BASED AUTH GETTING CALLED"); // called everytime a protected URL is being served
+    return done(null, jwt_payload.data);
+  }
+);
+
+// SAML strategy for passport -- Single IPD
+const SamlStrategy = new passportSaml.Strategy(
+  {
+    issuer: config.auth.issuer,
+    path: "/login/callback",
+    entryPoint: config.auth.entryPoint,
+    cert: config.auth.cert,
+  },
+  function (profile, done) {
+    console.log("Succesfully authenticated profile");
+    // console.log(profile);
     if (!profile.Email) {
       return done(new Error("No email found"), null);
     }
     let user = findByEmail(profile.Email);
     if (!user) {
-      console.log(`profile = `, profile)
+      // console.log(`profile = `, profile);
       users.push(profile);
       return done(null, profile);
     }
-    console.log('Ending Method for profiling');
+    console.log("Ending Method for profiling");
     return done(null, user);
-  });
-
-passport.use(strategy);
-
-passport.protected = function prot(req, res, next) {
-  console.log('login status: ' + req.isAuthenticated());
-  if (req.isAuthenticated()) {
-    return next();
   }
-  console.log('login please: ' + req.isAuthenticated());
-  res.redirect('/login');
-};
+);
+
+passport.use(SamlStrategy);
+passport.use(JwtStrategy);
+
+passport.protected = passport.authenticate('jwt', { session: false, failureRedirect: '/unauthorized' });
 
 module.exports = passport;
