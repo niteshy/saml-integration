@@ -1,0 +1,14 @@
+<h2>This is a home page, can be only accessed when logged in</h2>
+<br>
+<a href="http://localhost:3000/">Login Page</a>
+<br>
+<button id="loggout-button">Logout</button>
+<script>
+  document
+    .getElementById("loggout-button")
+    .addEventListener("click", function () {
+        console.log(document.cookie);
+      document.cookie='jwt=;';
+      document.location='/';
+    });
+</script>
