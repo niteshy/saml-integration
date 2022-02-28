@@ -30,47 +30,45 @@ passport.deserializeUser((user, done) => {
 });
 
 // JWT strategy for passport
-const JwtStrategy = new passportJwt.Strategy(
-  {
+const JwtStrategy = new passportJwt.Strategy({
     jwtFromRequest: function (req) {
       // tell passport to read JWT from cookies
       let token = null;
-      if (req && req.cookies) {
+      if (req && req.cookies && req.cookies["jwt"]) {
         token = req.cookies["jwt"];
-        console.log("-- JWT Token found");
+        console.log("JWTStrategy: Token found in cookie");
       }
-      console.log("-- JWT Returning token", token);
+      console.log("JWTStrategy: token = ", token);
       return token;
     },
     secretOrKey: JWT_SECRET,
   },
   function (jwt_payload, done) {
-    console.log("[AUTH] JWT BASED AUTH GETTING CALLED"); // called everytime a protected URL is being served
+    console.log("JWTStrategy: jwt_payload = ", jwt_payload.data); // called everytime a protected URL is being served
     return done(null, jwt_payload.data);
   }
 );
 
 // SAML strategy for passport -- Single IPD
-const SamlStrategy = new passportSaml.Strategy(
-  {
+const SamlStrategy = new passportSaml.Strategy({
     issuer: config.auth.issuer,
     path: "/login/callback",
     entryPoint: config.auth.entryPoint,
     cert: config.auth.cert,
   },
   function (profile, done) {
-    console.log("Succesfully authenticated profile");
-    // console.log(profile);
+    console.log("SamlStrategy: start");
+    console.log(profile);
     if (!profile.Email) {
       return done(new Error("No email found"), null);
     }
     let user = findByEmail(profile.Email);
     if (!user) {
-      // console.log(`profile = `, profile);
       users.push(profile);
+      console.log("Adding profile to users")
       return done(null, profile);
     }
-    console.log("Ending Method for profiling");
+    console.log("SamlStrategy: end");
     return done(null, user);
   }
 );

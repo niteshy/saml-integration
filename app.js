@@ -23,6 +23,12 @@ app.use(compression()); //Compress all routes
 app.use(auth.initialize());
 app.use(express.static("public"));
 
+const reqLogger = function (req, res, next) {
+  console.log(`Request: ${req.url} ${req.method} `, req.query, req.params);
+  next()
+}
+app.use(reqLogger);
+
 //Get Methods
 app.get("/", function (req, res) {
   res.sendFile(__dirname + "/pages/index.html");
@@ -37,53 +43,42 @@ app.get("/home", auth.protected, function (req, res) {
 });
 
 //auth.authenticate check if you are logged in
-app.get(
-  "/login/sso",
+app.get("/login/sso",
   auth.authenticate("saml", {
     successRedirect: "/",
-    failureRedirect: "/login",
+    failureRedirect: "/login/sso",
     failureFlash: true,
   }),
   function (req, res) {
-    console.log("sessionID = ", req.sessionID);
+    console.log(`/login/sso`)
     res.redirect("/");
   }
 );
 
 //POST Methods, redirect to home successful login
-app.post(
-  "/login/sso/callback",
+app.post("/login/sso/callback",
   auth.authenticate("saml", {
     failureRedirect: "/",
     failureFlash: true,
   }),
-  function (req, res, next) {
-    console.log('WARPED HERE');
+  function (req, res) {
     const xmlResponse = req.body.SAMLResponse;
     const parser = new Saml2js(xmlResponse);
     const profile = parser.toObject();
 
     req.samlUserObject = profile;
-    console.log('profile', profile)
-
-    const token = sign(
-      {
+    const token = sign({
         data: profile,
-      },
+      }, 
       JWT_SECRET,
       { expiresIn: 600 }
     );
     res.cookie("jwt", token);
-    console.log('token', token)
-
-
+    console.log("On sso/callback token = ", token);
     res.redirect("/home");
-    next();
   }
 );
 
-//code for importing static files
-app.use(express.static(path.join(__dirname, "public")));
 const currentPort = process.env.PORT || 3000;
 app.listen(currentPort);
 console.log("Server started at PORT " + currentPort);
